@@ -14,7 +14,6 @@ public class Main {
     private GameState currentState = GameState.START_SCREEN;
     private StartScreen startScreen;
     private GameWorld gameWorld;
-    private boolean showInventory = false;
 
     public void run() {
         init();
@@ -58,15 +57,27 @@ public class Main {
                     currentState = GameState.PLAYING;
                     gameWorld = new GameWorld(WIDTH, HEIGHT, System.currentTimeMillis());
                 } else if (currentState == GameState.PLAYING && key == GLFW_KEY_E) {
-                    showInventory = !showInventory;
-                } else if (currentState == GameState.PLAYING && key == GLFW_KEY_C) {
-                    gameWorld.toggleCrafting();
-                } else if (currentState == GameState.PLAYING && key == GLFW_KEY_UP && showInventory == false) {
-                    gameWorld.selectPrevRecipe();
-                } else if (currentState == GameState.PLAYING && key == GLFW_KEY_DOWN && showInventory == false) {
-                    gameWorld.selectNextRecipe();
-                } else if (currentState == GameState.PLAYING && key == GLFW_KEY_ENTER && showInventory == false) {
-                    gameWorld.craftSelectedRecipe();
+                    gameWorld.toggleInventory();
+                }
+            }
+        });
+        
+        glfwSetMouseButtonCallback(window, (win, button, action, mods) -> {
+            if (currentState == GameState.PLAYING && action == GLFW_PRESS && button == GLFW_MOUSE_BUTTON_LEFT) {
+                if (gameWorld.isInventoryOpen()) {
+                    double[] mx = new double[1];
+                    double[] my = new double[1];
+                    glfwGetCursorPos(window, mx, my);
+                    
+                    try (MemoryStack stack = MemoryStack.stackPush()) {
+                        var pW = stack.mallocInt(1);
+                        var pH = stack.mallocInt(1);
+                        glfwGetFramebufferSize(window, pW, pH);
+                        int fbWidth = pW.get(0);
+                        int fbHeight = pH.get(0);
+                        
+                        gameWorld.handleInventoryClick(mx[0], my[0], fbWidth, fbHeight);
+                    }
                 }
             }
         });
@@ -114,10 +125,7 @@ public class Main {
                     boolean placing = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_2) == GLFW_PRESS;
                     gameWorld.updateWithInput(dt, left, right, jump, mx[0], my[0], fbWidth, fbHeight, mining, placing);
                     gameWorld.render(fbWidth, fbHeight);
-                    if (showInventory) {
-                        gameWorld.renderFullInventory(fbWidth, fbHeight);
-                    }
-                    gameWorld.renderCrafting(fbWidth, fbHeight);
+                    gameWorld.renderFullInventory(fbWidth, fbHeight);
                 }
             }
 

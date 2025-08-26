@@ -7,7 +7,6 @@ public class GameWorld {
     private float cameraX = 0f;
     private final int SEA_LEVEL = 30; // tile Y for water filling
     private final Inventory inventory = new Inventory(9);
-    private final CraftingSystem craftingSystem = new CraftingSystem();
     private float zoom = 2.0f; // world zoom ( >1.0 zooms in )
     // Mining state
     private java.util.HashMap<Long, Integer> overrides = new java.util.HashMap<>(); // key=(tx<<32)|ty -> tile id
@@ -19,8 +18,7 @@ public class GameWorld {
     private int miningTy = Integer.MIN_VALUE;
     private float miningProgress = 0f; // 0..1
     // private float miningSpeed = 1.0f; // scaled by tool
-    private boolean showCrafting = false;
-    private int selectedRecipeIndex = 0;
+    private boolean showInventory = false;
 
     public GameWorld(int width, int height, long seed) {
         this.seed = seed;
@@ -449,6 +447,77 @@ public class GameWorld {
         // UI: hotbar (screen space)
         drawHotbar(width, height);
     }
+    
+    public void toggleInventory() {
+        showInventory = !showInventory;
+    }
+    
+    public boolean isInventoryOpen() {
+        return showInventory;
+    }
+    
+    public void handleInventoryClick(double mouseX, double mouseY, int screenWidth, int screenHeight) {
+        if (!showInventory) return;
+        
+        int slotSize = TILE_SIZE * 4;
+        int padding = 4;
+        
+        // Main inventory (3x9 grid)
+        int cols = 9;
+        int rows = 3;
+        int gridW = cols * (slotSize + padding) - padding;
+        int gridH = rows * (slotSize + padding) - padding;
+        int invStartX = (screenWidth - gridW) / 2;
+        int invStartY = (screenHeight - gridH) / 2 + 60; // Offset down for crafting area
+        
+        // Check main inventory clicks
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                int x = invStartX + c * (slotSize + padding);
+                int y = invStartY + r * (slotSize + padding);
+                
+                if (mouseX >= x && mouseX < x + slotSize && mouseY >= y && mouseY < y + slotSize) {
+                    int slotIndex = 9 + (r * cols + c); // Offset by hotbar size
+                    inventory.handleSlotClick(slotIndex);
+                    return;
+                }
+            }
+        }
+        
+        // Check hotbar clicks (shown at bottom of inventory)
+        int hotbarY = invStartY + gridH + 20;
+        int hotbarStartX = invStartX;
+        for (int i = 0; i < 9; i++) {
+            int x = hotbarStartX + i * (slotSize + padding);
+            if (mouseX >= x && mouseX < x + slotSize && mouseY >= hotbarY && mouseY < hotbarY + slotSize) {
+                inventory.handleSlotClick(i);
+                return;
+            }
+        }
+        
+        // Check crafting grid clicks (2x2 grid)
+        int craftingStartX = invStartX - 120;
+        int craftingStartY = invStartY - 60;
+        for (int r = 0; r < 2; r++) {
+            for (int c = 0; c < 2; c++) {
+                int x = craftingStartX + c * (slotSize + padding);
+                int y = craftingStartY + r * (slotSize + padding);
+                
+                if (mouseX >= x && mouseX < x + slotSize && mouseY >= y && mouseY < y + slotSize) {
+                    int craftingSlot = r * 2 + c;
+                    inventory.handleCraftingSlotClick(craftingSlot);
+                    return;
+                }
+            }
+        }
+        
+        // Check crafting result click
+        int resultX = craftingStartX + 120;
+        int resultY = craftingStartY + slotSize / 2;
+        if (mouseX >= resultX && mouseX < resultX + slotSize && mouseY >= resultY && mouseY < resultY + slotSize) {
+            inventory.handleCraftingResultClick();
+        }
+    }
 
     private void updateDrops(float dt) {
         float gravity = 55.0f * TILE_SIZE;
@@ -570,29 +639,45 @@ public class GameWorld {
     }
 
     public void renderFullInventory(int width, int height) {
+        if (!showInventory) return;
+        
         int slotSize = TILE_SIZE * 4;
         int padding = 4;
+
+        // Large background panel
+        glColor4f(0f, 0f, 0f, 0.8f);
+        glBegin(GL_QUADS);
+        glVertex2f(50, 50);
+        glVertex2f(width - 50, 50);
+        glVertex2f(width - 50, height - 50);
+        glVertex2f(50, height - 50);
+        glEnd();
+
+        // Main inventory (3x9 grid)
         int cols = 9;
         int rows = 3;
         int gridW = cols * (slotSize + padding) - padding;
         int gridH = rows * (slotSize + padding) - padding;
-        int startX = (width - gridW) / 2;
-        int startY = (height - gridH) / 2;
-
-        // Background panel
-        glColor4f(0f, 0f, 0f, 0.5f);
-        glBegin(GL_QUADS);
-        glVertex2f(startX - 8, startY - 8);
-        glVertex2f(startX + gridW + 8, startY - 8);
-        glVertex2f(startX + gridW + 8, startY + gridH + 8);
-        glVertex2f(startX - 8, startY + gridH + 8);
-        glEnd();
-
+        int invStartX = (width - gridW) / 2;
+        int invStartY = (height - gridH) / 2 + 60;
+        
+        // Draw main inventory slots
         for (int r = 0; r < rows; r++) {
             for (int c = 0; c < cols; c++) {
                 int idx = r * cols + c;
-                int x = startX + c * (slotSize + padding);
-                int y = startY + r * (slotSize + padding);
+                int x = invStartX + c * (slotSize + padding);
+                int y = invStartY + r * (slotSize + padding);
+                
+                // Slot background
+                glColor3f(0.3f, 0.3f, 0.3f);
+                glBegin(GL_QUADS);
+                glVertex2f(x, y);
+                glVertex2f(x + slotSize, y);
+                glVertex2f(x + slotSize, y + slotSize);
+                glVertex2f(x, y + slotSize);
+                glEnd();
+                
+                // Slot border
                 glColor3f(0.9f, 0.9f, 0.9f);
                 glBegin(GL_LINE_LOOP);
                 glVertex2f(x, y);
@@ -601,50 +686,170 @@ public class GameWorld {
                 glVertex2f(x, y + slotSize);
                 glEnd();
 
+                // Draw item in slot
                 Item item = inventory.getBagItem(idx);
-                if (item != null) {
-                    int mx = x + slotSize / 4;
-                    int my = y + slotSize / 4;
-                    int mw = slotSize / 2;
-                    int mh = slotSize / 2;
-                    if (item.isBlock()) {
-                        if (item.blockId == 1) glColor3f(0.4f, 0.2f, 0.1f);
-                        else if (item.blockId == 6) glColor3f(0.55f, 0.55f, 0.6f);
-                        else if (item.blockId == 3) glColor3f(0.5f, 0.35f, 0.2f);
-                        else glColor3f(0.8f, 0.8f, 0.8f);
-                        glBegin(GL_QUADS);
-                        glVertex2f(mx, my);
-                        glVertex2f(mx + mw, my);
-                        glVertex2f(mx + mw, my + mh);
-                        glVertex2f(mx, my + mh);
-                        glEnd();
-                        glColor3f(0, 0, 0);
-                        glBegin(GL_LINE_LOOP);
-                        glVertex2f(mx, my);
-                        glVertex2f(mx + mw, my);
-                        glVertex2f(mx + mw, my + mh);
-                        glVertex2f(mx, my + mh);
-                        glEnd();
-                        if (item.count > 1) {
-                            int scale = Math.max(2, slotSize / 12);
-                            int numX = x + slotSize - (3 * scale) - 4;
-                            int numY = y + slotSize - (5 * scale) - 4;
-                            glColor3f(1f, 1f, 1f);
-                            drawNumber(item.count, numX, numY, scale);
-                        }
-                    } else {
-                        if (item.toolType == ToolType.PICKAXE) glColor3f(0.8f, 0.7f, 0.2f);
-                        else if (item.toolType == ToolType.AXE) glColor3f(0.7f, 0.5f, 0.2f);
-                        else if (item.toolType == ToolType.SHOVEL) glColor3f(0.6f, 0.6f, 0.6f);
-                        else glColor3f(0.9f, 0.9f, 0.9f);
-                        glBegin(GL_QUADS);
-                        glVertex2f(mx, my);
-                        glVertex2f(mx + mw, my);
-                        glVertex2f(mx + mw, my + mh);
-                        glVertex2f(mx, my + mh);
-                        glEnd();
-                    }
-                }
+                drawItemInSlot(item, x, y, slotSize);
+            }
+        }
+        
+        // Draw hotbar at bottom of inventory
+        int hotbarY = invStartY + gridH + 20;
+        for (int i = 0; i < 9; i++) {
+            int x = invStartX + i * (slotSize + padding);
+            
+            // Slot background
+            glColor3f(0.2f, 0.2f, 0.2f);
+            glBegin(GL_QUADS);
+            glVertex2f(x, hotbarY);
+            glVertex2f(x + slotSize, hotbarY);
+            glVertex2f(x + slotSize, hotbarY + slotSize);
+            glVertex2f(x, hotbarY + slotSize);
+            glEnd();
+            
+            // Slot border
+            boolean selected = i == inventory.getSelectedIndex();
+            if (selected) glColor3f(1f, 1f, 1f); else glColor3f(0.9f, 0.9f, 0.9f);
+            glBegin(GL_LINE_LOOP);
+            glVertex2f(x, hotbarY);
+            glVertex2f(x + slotSize, hotbarY);
+            glVertex2f(x + slotSize, hotbarY + slotSize);
+            glVertex2f(x, hotbarY + slotSize);
+            glEnd();
+            
+            // Draw item
+            Item item = inventory.get(i);
+            drawItemInSlot(item, x, hotbarY, slotSize);
+        }
+        
+        // Draw crafting grid (2x2)
+        int craftingStartX = invStartX - 120;
+        int craftingStartY = invStartY - 60;
+        CraftingGrid crafting = inventory.getCraftingGrid();
+        
+        for (int r = 0; r < 2; r++) {
+            for (int c = 0; c < 2; c++) {
+                int x = craftingStartX + c * (slotSize + padding);
+                int y = craftingStartY + r * (slotSize + padding);
+                
+                // Slot background
+                glColor3f(0.4f, 0.3f, 0.2f);
+                glBegin(GL_QUADS);
+                glVertex2f(x, y);
+                glVertex2f(x + slotSize, y);
+                glVertex2f(x + slotSize, y + slotSize);
+                glVertex2f(x, y + slotSize);
+                glEnd();
+                
+                // Slot border
+                glColor3f(0.8f, 0.6f, 0.4f);
+                glBegin(GL_LINE_LOOP);
+                glVertex2f(x, y);
+                glVertex2f(x + slotSize, y);
+                glVertex2f(x + slotSize, y + slotSize);
+                glVertex2f(x, y + slotSize);
+                glEnd();
+                
+                // Draw item
+                int craftingSlot = r * 2 + c;
+                Item item = crafting.get(craftingSlot);
+                drawItemInSlot(item, x, y, slotSize);
+            }
+        }
+        
+        // Draw crafting result slot
+        int resultX = craftingStartX + 120;
+        int resultY = craftingStartY + slotSize / 2;
+        
+        // Result slot background
+        glColor3f(0.2f, 0.4f, 0.2f);
+        glBegin(GL_QUADS);
+        glVertex2f(resultX, resultY);
+        glVertex2f(resultX + slotSize, resultY);
+        glVertex2f(resultX + slotSize, resultY + slotSize);
+        glVertex2f(resultX, resultY + slotSize);
+        glEnd();
+        
+        // Result slot border
+        Item result = crafting.getResult();
+        boolean canCraft = result != null && crafting.canCraft();
+        if (canCraft) glColor3f(0.4f, 0.8f, 0.4f); else glColor3f(0.8f, 0.8f, 0.8f);
+        glBegin(GL_LINE_LOOP);
+        glVertex2f(resultX, resultY);
+        glVertex2f(resultX + slotSize, resultY);
+        glVertex2f(resultX + slotSize, resultY + slotSize);
+        glVertex2f(resultX, resultY + slotSize);
+        glEnd();
+        
+        // Draw result item
+        if (canCraft) {
+            drawItemInSlot(result, resultX, resultY, slotSize);
+        }
+        
+        // Draw held item (follows mouse)
+        Item heldItem = inventory.getHeldItem();
+        if (heldItem != null) {
+            // Get mouse position (this is simplified - in a real implementation you'd pass mouse coords)
+            int mouseX = width / 2; // Placeholder
+            int mouseY = height / 2; // Placeholder
+            drawItemInSlot(heldItem, mouseX - slotSize/2, mouseY - slotSize/2, slotSize);
+        }
+    }
+    
+    private void drawItemInSlot(Item item, int x, int y, int slotSize) {
+        if (item == null) return;
+        
+        int mx = x + slotSize / 4;
+        int my = y + slotSize / 4;
+        int mw = slotSize / 2;
+        int mh = slotSize / 2;
+        
+        if (item.isBlock()) {
+            // Block colors
+            if (item.blockId == 1) glColor3f(0.4f, 0.2f, 0.1f); // dirt
+            else if (item.blockId == 6) glColor3f(0.55f, 0.55f, 0.6f); // stone
+            else if (item.blockId == 3) glColor3f(0.5f, 0.35f, 0.2f); // wood
+            else if (item.blockId == 7) glColor3f(0.6f, 0.4f, 0.2f); // wood planks
+            else if (item.blockId == 8) glColor3f(0.7f, 0.7f, 0.75f); // stone bricks
+            else glColor3f(0.8f, 0.8f, 0.8f);
+            
+            glBegin(GL_QUADS);
+            glVertex2f(mx, my);
+            glVertex2f(mx + mw, my);
+            glVertex2f(mx + mw, my + mh);
+            glVertex2f(mx, my + mh);
+            glEnd();
+            
+            glColor3f(0, 0, 0);
+            glBegin(GL_LINE_LOOP);
+            glVertex2f(mx, my);
+            glVertex2f(mx + mw, my);
+            glVertex2f(mx + mw, my + mh);
+            glVertex2f(mx, my + mh);
+            glEnd();
+            
+            // Draw count
+            if (item.count > 1) {
+                int scale = Math.max(2, slotSize / 12);
+                int numX = x + slotSize - (3 * scale) - 4;
+                int numY = y + slotSize - (5 * scale) - 4;
+                glColor3f(1f, 1f, 1f);
+                drawNumber(item.count, numX, numY, scale);
+            }
+        } else {
+            // Tool colors
+            if (item.toolType == ToolType.PICKAXE) glColor3f(0.8f, 0.7f, 0.2f);
+            else if (item.toolType == ToolType.AXE) glColor3f(0.7f, 0.5f, 0.2f);
+            else if (item.toolType == ToolType.SHOVEL) glColor3f(0.6f, 0.6f, 0.6f);
+            else glColor3f(0.9f, 0.9f, 0.9f);
+            
+            glBegin(GL_QUADS);
+            glVertex2f(mx, my);
+            glVertex2f(mx + mw, my);
+            glVertex2f(mx + mw, my + mh);
+            glVertex2f(mx, my + mh);
+            glEnd();
+        }
+    }
             }
         }
     }
@@ -743,149 +948,5 @@ public class GameWorld {
         }
     }
 
-    public void toggleCrafting() {
-        showCrafting = !showCrafting;
-        selectedRecipeIndex = 0;
-    }
-
-    public void selectNextRecipe() {
-        if (showCrafting) {
-            java.util.List<Recipe> recipes = craftingSystem.getAllRecipes();
-            if (!recipes.isEmpty()) {
-                selectedRecipeIndex = (selectedRecipeIndex + 1) % recipes.size();
-            }
-        }
-    }
-
-    public void selectPrevRecipe() {
-        if (showCrafting) {
-            java.util.List<Recipe> recipes = craftingSystem.getAllRecipes();
-            if (!recipes.isEmpty()) {
-                selectedRecipeIndex = (selectedRecipeIndex - 1 + recipes.size()) % recipes.size();
-            }
-        }
-    }
-
-    public void craftSelectedRecipe() {
-        if (showCrafting) {
-            java.util.List<Recipe> recipes = craftingSystem.getAllRecipes();
-            if (selectedRecipeIndex >= 0 && selectedRecipeIndex < recipes.size()) {
-                Recipe recipe = recipes.get(selectedRecipeIndex);
-                craftingSystem.craftItem(recipe, inventory);
-            }
-        }
-    }
-
-    public void renderCrafting(int width, int height) {
-        if (!showCrafting) return;
-
-        java.util.List<Recipe> allRecipes = craftingSystem.getAllRecipes();
-        java.util.List<Recipe> availableRecipes = craftingSystem.getAvailableRecipes(inventory);
-        
-        int panelWidth = 400;
-        int panelHeight = 300;
-        int startX = (width - panelWidth) / 2;
-        int startY = (height - panelHeight) / 2;
-
-        // Background panel
-        glColor4f(0.1f, 0.1f, 0.1f, 0.9f);
-        glBegin(GL_QUADS);
-        glVertex2f(startX, startY);
-        glVertex2f(startX + panelWidth, startY);
-        glVertex2f(startX + panelWidth, startY + panelHeight);
-        glVertex2f(startX, startY + panelHeight);
-        glEnd();
-
-        // Border
-        glColor3f(0.8f, 0.8f, 0.8f);
-        glBegin(GL_LINE_LOOP);
-        glVertex2f(startX, startY);
-        glVertex2f(startX + panelWidth, startY);
-        glVertex2f(startX + panelWidth, startY + panelHeight);
-        glVertex2f(startX, startY + panelHeight);
-        glEnd();
-
-        // Title
-        glColor3f(1f, 1f, 1f);
-        // Simple title representation with a line
-        glBegin(GL_LINES);
-        glVertex2f(startX + 20, startY + 30);
-        glVertex2f(startX + panelWidth - 20, startY + 30);
-        glEnd();
-
-        // Recipe list
-        int recipeY = startY + 50;
-        int recipeHeight = 40;
-        
-        for (int i = 0; i < allRecipes.size(); i++) {
-            Recipe recipe = allRecipes.get(i);
-            boolean canCraft = availableRecipes.contains(recipe);
-            boolean selected = i == selectedRecipeIndex;
-            
-            int itemY = recipeY + i * recipeHeight;
-            
-            // Selection highlight
-            if (selected) {
-                glColor4f(0.3f, 0.3f, 0.5f, 0.7f);
-                glBegin(GL_QUADS);
-                glVertex2f(startX + 10, itemY);
-                glVertex2f(startX + panelWidth - 10, itemY);
-                glVertex2f(startX + panelWidth - 10, itemY + recipeHeight - 5);
-                glVertex2f(startX + 10, itemY + recipeHeight - 5);
-                glEnd();
-            }
-            
-            // Recipe availability indicator
-            if (canCraft) {
-                glColor3f(0.2f, 0.8f, 0.2f); // Green for available
-            } else {
-                glColor3f(0.8f, 0.2f, 0.2f); // Red for unavailable
-            }
-            
-            // Simple recipe representation - just a colored square
-            glBegin(GL_QUADS);
-            glVertex2f(startX + 20, itemY + 5);
-            glVertex2f(startX + 35, itemY + 5);
-            glVertex2f(startX + 35, itemY + 20);
-            glVertex2f(startX + 20, itemY + 20);
-            glEnd();
-            
-            // Recipe result representation
-            Item result = recipe.result;
-            if (result.isBlock()) {
-                if (result.blockId == 1) glColor3f(0.4f, 0.2f, 0.1f);
-                else if (result.blockId == 6) glColor3f(0.55f, 0.55f, 0.6f);
-                else if (result.blockId == 3) glColor3f(0.5f, 0.35f, 0.2f);
-                else if (result.blockId == 7) glColor3f(0.6f, 0.4f, 0.2f);
-                else if (result.blockId == 8) glColor3f(0.7f, 0.7f, 0.75f);
-                else glColor3f(0.8f, 0.8f, 0.8f);
-            } else {
-                if (result.toolType == ToolType.PICKAXE) glColor3f(0.8f, 0.7f, 0.2f);
-                else if (result.toolType == ToolType.AXE) glColor3f(0.7f, 0.5f, 0.2f);
-                else if (result.toolType == ToolType.SHOVEL) glColor3f(0.6f, 0.6f, 0.6f);
-                else glColor3f(0.9f, 0.9f, 0.9f);
-            }
-            
-            glBegin(GL_QUADS);
-            glVertex2f(startX + 50, itemY + 5);
-            glVertex2f(startX + 65, itemY + 5);
-            glVertex2f(startX + 65, itemY + 20);
-            glVertex2f(startX + 50, itemY + 20);
-            glEnd();
-        }
-        
-        // Instructions
-        glColor3f(0.7f, 0.7f, 0.7f);
-        int instructY = startY + panelHeight - 40;
-        // Simple instruction lines
-        glBegin(GL_LINES);
-        glVertex2f(startX + 20, instructY);
-        glVertex2f(startX + 100, instructY);
-        glVertex2f(startX + 20, instructY + 10);
-        glVertex2f(startX + 120, instructY + 10);
-        glVertex2f(startX + 20, instructY + 20);
-        glVertex2f(startX + 80, instructY + 20);
-        glEnd();
-    }
 }
 
