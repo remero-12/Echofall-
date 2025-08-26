@@ -7,6 +7,7 @@ public class GameWorld {
     private float cameraX = 0f;
     private final int SEA_LEVEL = 30; // tile Y for water filling
     private final Inventory inventory = new Inventory(9);
+    private final CraftingSystem craftingSystem = new CraftingSystem();
     private float zoom = 2.0f; // world zoom ( >1.0 zooms in )
     // Mining state
     private java.util.HashMap<Long, Integer> overrides = new java.util.HashMap<>(); // key=(tx<<32)|ty -> tile id
@@ -18,6 +19,8 @@ public class GameWorld {
     private int miningTy = Integer.MIN_VALUE;
     private float miningProgress = 0f; // 0..1
     // private float miningSpeed = 1.0f; // scaled by tool
+    private boolean showCrafting = false;
+    private int selectedRecipeIndex = 0;
 
     public GameWorld(int width, int height, long seed) {
         this.seed = seed;
@@ -347,7 +350,7 @@ public class GameWorld {
 
     private boolean isSolidResolved(int tx, int ty) {
         int t = resolvedTileAt(tx, ty);
-        return t == 1 || t == 3 || t == 5 || t == 6;
+        return t == 1 || t == 3 || t == 5 || t == 6 || t == 7 || t == 8; // Added planks and bricks
     }
 
     public void render(int width, int height) {
@@ -386,6 +389,8 @@ public class GameWorld {
                 else if (tile == 4) glColor3f(0.2f, 0.8f, 0.2f); // leaves
                 else if (tile == 5) glColor3f(0.15f, 0.75f, 0.25f); // grass top
                 else if (tile == 6) glColor3f(0.55f, 0.55f, 0.6f); // stone
+                else if (tile == 7) glColor3f(0.6f, 0.4f, 0.2f); // wood planks
+                else if (tile == 8) glColor3f(0.7f, 0.7f, 0.75f); // stone bricks
                 glBegin(GL_QUADS);
                 glVertex2f(px, py);
                 glVertex2f(px + TILE_SIZE, py);

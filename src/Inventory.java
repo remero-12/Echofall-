@@ -101,6 +101,66 @@ public class Inventory {
         }
         return true;
     }
+
+    public boolean hasToolType(ToolType toolType) {
+        for (Item item : hotbar) {
+            if (item != null && item.toolType == toolType) {
+                return true;
+            }
+        }
+        for (Item item : bag) {
+            if (item != null && item.toolType == toolType) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public void consumeBlocks(int blockId, int amount) {
+        int remaining = amount;
+        
+        // First consume from hotbar
+        for (int i = 0; i < hotbar.length && remaining > 0; i++) {
+            Item item = hotbar[i];
+            if (item != null && item.isBlock() && item.blockId == blockId) {
+                int toConsume = Math.min(remaining, item.count);
+                item.count -= toConsume;
+                remaining -= toConsume;
+                if (item.count == 0) {
+                    hotbar[i] = null;
+                }
+            }
+        }
+        
+        // Then consume from bag
+        for (int i = 0; i < bag.length && remaining > 0; i++) {
+            Item item = bag[i];
+            if (item != null && item.isBlock() && item.blockId == blockId) {
+                int toConsume = Math.min(remaining, item.count);
+                item.count -= toConsume;
+                remaining -= toConsume;
+                if (item.count == 0) {
+                    bag[i] = null;
+                }
+            }
+        }
+    }
+
+    public void addTool(Item tool) {
+        // Add tool to first empty hotbar slot, then bag
+        for (int i = 0; i < hotbar.length; i++) {
+            if (hotbar[i] == null) {
+                hotbar[i] = tool;
+                return;
+            }
+        }
+        for (int i = 0; i < bag.length; i++) {
+            if (bag[i] == null) {
+                bag[i] = tool;
+                return;
+            }
+        }
+    }
 }
 
 
