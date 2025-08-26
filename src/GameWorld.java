@@ -742,5 +742,150 @@ public class GameWorld {
             cursor += (3 * scale) + scale; // digit width + spacing
         }
     }
+
+    public void toggleCrafting() {
+        showCrafting = !showCrafting;
+        selectedRecipeIndex = 0;
+    }
+
+    public void selectNextRecipe() {
+        if (showCrafting) {
+            java.util.List<Recipe> recipes = craftingSystem.getAllRecipes();
+            if (!recipes.isEmpty()) {
+                selectedRecipeIndex = (selectedRecipeIndex + 1) % recipes.size();
+            }
+        }
+    }
+
+    public void selectPrevRecipe() {
+        if (showCrafting) {
+            java.util.List<Recipe> recipes = craftingSystem.getAllRecipes();
+            if (!recipes.isEmpty()) {
+                selectedRecipeIndex = (selectedRecipeIndex - 1 + recipes.size()) % recipes.size();
+            }
+        }
+    }
+
+    public void craftSelectedRecipe() {
+        if (showCrafting) {
+            java.util.List<Recipe> recipes = craftingSystem.getAllRecipes();
+            if (selectedRecipeIndex >= 0 && selectedRecipeIndex < recipes.size()) {
+                Recipe recipe = recipes.get(selectedRecipeIndex);
+                craftingSystem.craftItem(recipe, inventory);
+            }
+        }
+    }
+
+    public void renderCrafting(int width, int height) {
+        if (!showCrafting) return;
+
+        java.util.List<Recipe> allRecipes = craftingSystem.getAllRecipes();
+        java.util.List<Recipe> availableRecipes = craftingSystem.getAvailableRecipes(inventory);
+        
+        int panelWidth = 400;
+        int panelHeight = 300;
+        int startX = (width - panelWidth) / 2;
+        int startY = (height - panelHeight) / 2;
+
+        // Background panel
+        glColor4f(0.1f, 0.1f, 0.1f, 0.9f);
+        glBegin(GL_QUADS);
+        glVertex2f(startX, startY);
+        glVertex2f(startX + panelWidth, startY);
+        glVertex2f(startX + panelWidth, startY + panelHeight);
+        glVertex2f(startX, startY + panelHeight);
+        glEnd();
+
+        // Border
+        glColor3f(0.8f, 0.8f, 0.8f);
+        glBegin(GL_LINE_LOOP);
+        glVertex2f(startX, startY);
+        glVertex2f(startX + panelWidth, startY);
+        glVertex2f(startX + panelWidth, startY + panelHeight);
+        glVertex2f(startX, startY + panelHeight);
+        glEnd();
+
+        // Title
+        glColor3f(1f, 1f, 1f);
+        // Simple title representation with a line
+        glBegin(GL_LINES);
+        glVertex2f(startX + 20, startY + 30);
+        glVertex2f(startX + panelWidth - 20, startY + 30);
+        glEnd();
+
+        // Recipe list
+        int recipeY = startY + 50;
+        int recipeHeight = 40;
+        
+        for (int i = 0; i < allRecipes.size(); i++) {
+            Recipe recipe = allRecipes.get(i);
+            boolean canCraft = availableRecipes.contains(recipe);
+            boolean selected = i == selectedRecipeIndex;
+            
+            int itemY = recipeY + i * recipeHeight;
+            
+            // Selection highlight
+            if (selected) {
+                glColor4f(0.3f, 0.3f, 0.5f, 0.7f);
+                glBegin(GL_QUADS);
+                glVertex2f(startX + 10, itemY);
+                glVertex2f(startX + panelWidth - 10, itemY);
+                glVertex2f(startX + panelWidth - 10, itemY + recipeHeight - 5);
+                glVertex2f(startX + 10, itemY + recipeHeight - 5);
+                glEnd();
+            }
+            
+            // Recipe availability indicator
+            if (canCraft) {
+                glColor3f(0.2f, 0.8f, 0.2f); // Green for available
+            } else {
+                glColor3f(0.8f, 0.2f, 0.2f); // Red for unavailable
+            }
+            
+            // Simple recipe representation - just a colored square
+            glBegin(GL_QUADS);
+            glVertex2f(startX + 20, itemY + 5);
+            glVertex2f(startX + 35, itemY + 5);
+            glVertex2f(startX + 35, itemY + 20);
+            glVertex2f(startX + 20, itemY + 20);
+            glEnd();
+            
+            // Recipe result representation
+            Item result = recipe.result;
+            if (result.isBlock()) {
+                if (result.blockId == 1) glColor3f(0.4f, 0.2f, 0.1f);
+                else if (result.blockId == 6) glColor3f(0.55f, 0.55f, 0.6f);
+                else if (result.blockId == 3) glColor3f(0.5f, 0.35f, 0.2f);
+                else if (result.blockId == 7) glColor3f(0.6f, 0.4f, 0.2f);
+                else if (result.blockId == 8) glColor3f(0.7f, 0.7f, 0.75f);
+                else glColor3f(0.8f, 0.8f, 0.8f);
+            } else {
+                if (result.toolType == ToolType.PICKAXE) glColor3f(0.8f, 0.7f, 0.2f);
+                else if (result.toolType == ToolType.AXE) glColor3f(0.7f, 0.5f, 0.2f);
+                else if (result.toolType == ToolType.SHOVEL) glColor3f(0.6f, 0.6f, 0.6f);
+                else glColor3f(0.9f, 0.9f, 0.9f);
+            }
+            
+            glBegin(GL_QUADS);
+            glVertex2f(startX + 50, itemY + 5);
+            glVertex2f(startX + 65, itemY + 5);
+            glVertex2f(startX + 65, itemY + 20);
+            glVertex2f(startX + 50, itemY + 20);
+            glEnd();
+        }
+        
+        // Instructions
+        glColor3f(0.7f, 0.7f, 0.7f);
+        int instructY = startY + panelHeight - 40;
+        // Simple instruction lines
+        glBegin(GL_LINES);
+        glVertex2f(startX + 20, instructY);
+        glVertex2f(startX + 100, instructY);
+        glVertex2f(startX + 20, instructY + 10);
+        glVertex2f(startX + 120, instructY + 10);
+        glVertex2f(startX + 20, instructY + 20);
+        glVertex2f(startX + 80, instructY + 20);
+        glEnd();
+    }
 }
 

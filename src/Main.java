@@ -59,6 +59,14 @@ public class Main {
                     gameWorld = new GameWorld(WIDTH, HEIGHT, System.currentTimeMillis());
                 } else if (currentState == GameState.PLAYING && key == GLFW_KEY_E) {
                     showInventory = !showInventory;
+                } else if (currentState == GameState.PLAYING && key == GLFW_KEY_C) {
+                    gameWorld.toggleCrafting();
+                } else if (currentState == GameState.PLAYING && key == GLFW_KEY_UP && showInventory == false) {
+                    gameWorld.selectPrevRecipe();
+                } else if (currentState == GameState.PLAYING && key == GLFW_KEY_DOWN && showInventory == false) {
+                    gameWorld.selectNextRecipe();
+                } else if (currentState == GameState.PLAYING && key == GLFW_KEY_ENTER && showInventory == false) {
+                    gameWorld.craftSelectedRecipe();
                 }
             }
         });
@@ -109,6 +117,7 @@ public class Main {
                     if (showInventory) {
                         gameWorld.renderFullInventory(fbWidth, fbHeight);
                     }
+                    gameWorld.renderCrafting(fbWidth, fbHeight);
                 }
             }
 
